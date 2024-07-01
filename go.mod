@@ -1,6 +1,6 @@
 module github.com/joeybrown/mini-cow
 
-go 1.22.4
+go 1.22
 
 require (
 	github.com/Code-Hex/Neo-cowsay/v2 v2.0.4 // indirect

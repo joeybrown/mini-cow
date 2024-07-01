@@ -1,0 +1,5 @@
+Containerfile
+.containerignore
+.gitignore
+bin/
+README.md

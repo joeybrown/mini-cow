@@ -1,0 +1,20 @@
+ARG TARGET_PLATFORM
+ARG BASE_IMAGE_REF
+
+FROM --platform=${TARGET_PLATFORM} golang:1.19
+
+WORKDIR /app
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN make current
+
+FROM --platform=${TARGET_PLATFORM} ${BASE_IMAGE_REF}
+
+RUN echo "For the children!" > /children.txt
+RUN echo "For the environment!" > /environment.txt
+RUN echo "For the animals!" > /animals.txt
+
+COPY --from=0 /app/bin/mycowsay /app/bin/mycowsay
+
+ENTRYPOINT ["/app/bin/mycowsay"]
