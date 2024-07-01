@@ -46,7 +46,46 @@ podman-build:
 	@echo $(REGISTRY)/containerfile/$(EXECUTABLE)-arm64:$(VERSION)
 	@echo $(REGISTRY)/containerfile/$(EXECUTABLE):$(VERSION)
 
+# make podman-run REGISTRY=localhost:8000
 podman-run:
-	podman run --rm containerfile/$(EXECUTABLE):$(VERSION) "Hello, Dev Memphis!"
-podman-dive:
-	dive containerfile/$(EXECUTABLE):$(VERSION)
+	podman run --rm $(REGISTRY)/containerfile/$(EXECUTABLE):$(VERSION) "This was made with podman (buildah)!"
+
+# make crane-build REGISTRY=localhost:8000
+crane-build:
+	mkdir -p /tmp/app/bin
+	cp bin/$(EXECUTABLE)_linux_arm64 /tmp/app/bin/mycowsay
+	bash -c "crane append -f <(tar -c -f - -C /tmp app/bin/mycowsay) -t $(REGISTRY)/cranebuild/$(EXECUTABLE):$(VERSION) --base $(REGISTRY)/containerfile/base:arm64-$(BASE_VERSION)"
+	crane mutate --entrypoint "/app/bin/mycowsay" $(REGISTRY)/cranebuild/$(EXECUTABLE):$(VERSION)
+	@echo
+	@echo "------------------------------------------------------------"
+	@echo
+	@echo "Crane \"build\" completed. Image pushed to $(REGISTRY)."
+	@echo $(REGISTRY)/cranebuild/$(EXECUTABLE):$(VERSION)
+
+# make ko-yaml REGISTRY=localhost:8000
+ko-yaml:
+	@echo "defaultBaseImage: ${REGISTRY}/containerfile/base:v0.1.0" > build/ko.yaml
+	@echo "" >> build/ko.yaml
+	@echo "defaultPlatforms:" >> build/ko.yaml
+	@echo "  - linux/amd64" >> build/ko.yaml
+	@echo "  - linux/arm64" >> build/ko.yaml
+	@echo "" >> build/ko.yaml
+	@echo "builds:" >> build/ko.yaml
+	@echo "  - id: cowsay" >> build/ko.yaml
+	@echo "    dir: ." >> build/ko.yaml
+	@echo "    main: ./cmd/cow-say" >> build/ko.yaml
+	@echo "    ldflags:" >> build/ko.yaml
+	@echo "      - -s -w" >> build/ko.yaml
+	@echo "      - -X main.version={{.Env.VERSION}}" >> build/ko.yaml
+
+# make ko-build REGISTRY=localhost:8000
+ko-build:
+	KO_DOCKER_REPO=$(REGISTRY)/kobuild/$(EXECUTABLE) KO_CONFIG_PATH=build/ko.yaml VERSION=$(VERSION) ko build --insecure-registry --bare -t $(VERSION) ./cmd/cow-say
+	@echo
+	@echo "------------------------------------------------------------"
+	@echo
+	@echo "Ko build completed. Image pushed to $(REGISTRY)."
+	@echo $(REGISTRY)/kobuild/$(EXECUTABLE):$(VERSION)
+
+
+

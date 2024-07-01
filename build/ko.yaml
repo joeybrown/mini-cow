@@ -1,0 +1,13 @@
+defaultBaseImage: localhost:8000/containerfile/base:v0.1.0
+defaultPlatforms:
+  - linux/amd64
+  - linux/arm64
+
+builds:
+  - id: cowsay
+    dir: .
+    main: ./cmd/cow-say
+    ldflags:
+      - -s -w
+      - -X main.version={{.Env.VERSION}}
+
