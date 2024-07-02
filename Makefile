@@ -3,6 +3,8 @@ VERSION := $(shell git describe --tags --always --long --dirty) # this is the ve
 
 BASE_VERSION := v0.1.0 # this is the version of the base image
 
+REGISTRY := localhost:8000
+
 all: linux-amd64 linux-arm64 darwin-amd64 darwin-arm64
 
 linux-amd64:
@@ -16,7 +18,7 @@ darwin-arm64:
 current:
 	go build -v -o ./bin/$(EXECUTABLE) -ldflags="-s -w -X main.version=$(VERSION)" ./cmd/cow-say/main.go
 
-# make podman-base REGISTRY=localhost:8000
+# make podman-base
 podman-base:
 	podman build -t $(REGISTRY)/containerfile/base:amd64-$(BASE_VERSION) --build-arg TARGET_PLATFORM="linux/amd64" -f build/base.Containerfile .
 	podman push --tls-verify=false $(REGISTRY)/containerfile/base:amd64-$(BASE_VERSION)
@@ -31,7 +33,7 @@ podman-base:
 	@echo $(REGISTRY)/containerfile/base:arm64-$(BASE_VERSION)
 	@echo $(REGISTRY)/containerfile/base:$(BASE_VERSION)
 
-# make podman-build REGISTRY=localhost:8000 BASE_IMAGE_REF=localhost:8000/containerfile/base:v0.1.0
+# make podman-build BASE_IMAGE_REF=localhost:8000/containerfile/base:v0.1.0
 podman-build:
 	podman build -t $(REGISTRY)/containerfile/$(EXECUTABLE)-amd64:$(VERSION) --build-arg TARGET_PLATFORM="linux/amd64" --build-arg BASE_IMAGE_REF=$(BASE_IMAGE_REF) -f build/Containerfile .
 	podman push --tls-verify=false $(REGISTRY)/containerfile/$(EXECUTABLE)-amd64:$(VERSION)
@@ -46,11 +48,11 @@ podman-build:
 	@echo $(REGISTRY)/containerfile/$(EXECUTABLE)-arm64:$(VERSION)
 	@echo $(REGISTRY)/containerfile/$(EXECUTABLE):$(VERSION)
 
-# make podman-run REGISTRY=localhost:8000
+# make podman-run
 podman-run:
 	podman run --rm $(REGISTRY)/containerfile/$(EXECUTABLE):$(VERSION) "This was made with podman (buildah)!"
 
-# make crane-build REGISTRY=localhost:8000
+# make crane-build
 crane-build:
 	mkdir -p /tmp/app/bin
 	cp bin/$(EXECUTABLE)_linux_arm64 /tmp/app/bin/mycowsay
@@ -62,7 +64,7 @@ crane-build:
 	@echo "Crane \"build\" completed. Image pushed to $(REGISTRY)."
 	@echo $(REGISTRY)/cranebuild/$(EXECUTABLE):$(VERSION)
 
-# make ko-yaml REGISTRY=localhost:8000
+# make ko-yaml
 ko-yaml:
 	@echo "defaultBaseImage: ${REGISTRY}/containerfile/base:v0.1.0" > build/ko.yaml
 	@echo "" >> build/ko.yaml
@@ -78,7 +80,7 @@ ko-yaml:
 	@echo "      - -s -w" >> build/ko.yaml
 	@echo "      - -X main.version={{.Env.VERSION}}" >> build/ko.yaml
 
-# make ko-build REGISTRY=localhost:8000
+# make ko-build
 ko-build:
 	KO_DOCKER_REPO=$(REGISTRY)/kobuild/$(EXECUTABLE) KO_CONFIG_PATH=build/ko.yaml VERSION=$(VERSION) ko build --insecure-registry --bare -t $(VERSION) ./cmd/cow-say
 	@echo
@@ -87,5 +89,34 @@ ko-build:
 	@echo "Ko build completed. Image pushed to $(REGISTRY)."
 	@echo $(REGISTRY)/kobuild/$(EXECUTABLE):$(VERSION)
 
+# Create a buildpack base run image based on heroku:22
+buildpack-base:
+	podman build -t $(REGISTRY)/buildpack/base:amd64-$(BASE_VERSION) --build-arg TARGET_PLATFORM="linux/amd64" -f build/run.Containerfile .
+	podman push --tls-verify=false $(REGISTRY)/buildpack/base:amd64-$(BASE_VERSION)
+	podman build -t $(REGISTRY)/buildpack/base:arm64-$(BASE_VERSION) --build-arg TARGET_PLATFORM="linux/arm64" -f build/run.Containerfile .
+	podman push --tls-verify=false $(REGISTRY)/buildpack/base:arm64-$(BASE_VERSION)
+	crane index append -t $(REGISTRY)/buildpack/base:$(BASE_VERSION) -m $(REGISTRY)/buildpack/base:amd64-$(BASE_VERSION) -m $(REGISTRY)/buildpack/base:arm64-$(BASE_VERSION)
+	@echo
+	@echo "------------------------------------------------------------"
+	@echo
+	@echo "Buildpack base image build completed. Images pushed to $(REGISTRY)."
+	@echo $(REGISTRY)/buildpack/base:amd64-$(BASE_VERSION)
+	@echo $(REGISTRY)/buildpack/base:arm64-$(BASE_VERSION)
+	@echo $(REGISTRY)/buildpack/base:$(BASE_VERSION)
 
+buildpack-build:
+	pack build $(REGISTRY)/buildpack/$(EXECUTABLE):$(VERSION) \
+		--descriptor build/project.toml \
+		--builder heroku/builder:24 \
+		--run-image $(REGISTRY)/buildpack/base:$(BASE_VERSION) \
+		--publish \
+		--default-process "cow-say" \
+		--network host
 
+buildpack-config-inspect:
+	@crane config $(REGISTRY)/buildpack/$(EXECUTABLE):$(VERSION) | jq '.config.Labels' | jq -r '.["io.buildpacks.lifecycle.metadata"]' | jq -r '.runImage.topLayer'
+	@crane config $(REGISTRY)/buildpack/$(EXECUTABLE):$(VERSION) | jq '.config.Labels' | jq -r '.["io.buildpacks.lifecycle.metadata"]' | jq -r '.runImage.reference'
+
+buildpack-sbom:
+	digest=$(shell crane config $(REGISTRY)/buildpack/$(EXECUTABLE):$(VERSION) | jq '.config.Labels' | jq -r '.["io.buildpacks.lifecycle.metadata"]' | jq -r '.sbom.sha')
+	curl -s -L -o sbom.json $(REGISTRY)/v2/buildpack/$(EXECUTABLE):$(digest)
