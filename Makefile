@@ -91,11 +91,11 @@ ko-build:
 
 # Create a buildpack base run image based on heroku:22
 buildpack-base:
-	podman build -t $(REGISTRY)/buildpack/base:amd64-$(BASE_VERSION) --build-arg TARGET_PLATFORM="linux/amd64" -f build/run.Containerfile .
+	podman build -t $(REGISTRY)/buildpack/base:amd64-$(BASE_VERSION) --build-arg TARGET_PLATFORM="linux/amd64" --format docker -f build/run.Containerfile .
 	podman push --tls-verify=false $(REGISTRY)/buildpack/base:amd64-$(BASE_VERSION)
-	podman build -t $(REGISTRY)/buildpack/base:arm64-$(BASE_VERSION) --build-arg TARGET_PLATFORM="linux/arm64" -f build/run.Containerfile .
+	podman build -t $(REGISTRY)/buildpack/base:arm64-$(BASE_VERSION) --build-arg TARGET_PLATFORM="linux/arm64" --format docker -f build/run.Containerfile .
 	podman push --tls-verify=false $(REGISTRY)/buildpack/base:arm64-$(BASE_VERSION)
-	crane index append -t $(REGISTRY)/buildpack/base:$(BASE_VERSION) -m $(REGISTRY)/buildpack/base:amd64-$(BASE_VERSION) -m $(REGISTRY)/buildpack/base:arm64-$(BASE_VERSION)
+	crane index append --docker-empty-base -t $(REGISTRY)/buildpack/base:$(BASE_VERSION) -m $(REGISTRY)/buildpack/base:amd64-$(BASE_VERSION) -m $(REGISTRY)/buildpack/base:arm64-$(BASE_VERSION)
 	@echo
 	@echo "------------------------------------------------------------"
 	@echo
@@ -117,6 +117,3 @@ buildpack-config-inspect:
 	@crane config $(REGISTRY)/buildpack/$(EXECUTABLE):$(VERSION) | jq '.config.Labels' | jq -r '.["io.buildpacks.lifecycle.metadata"]' | jq -r '.runImage.topLayer'
 	@crane config $(REGISTRY)/buildpack/$(EXECUTABLE):$(VERSION) | jq '.config.Labels' | jq -r '.["io.buildpacks.lifecycle.metadata"]' | jq -r '.runImage.reference'
 
-buildpack-sbom:
-	digest=$(shell crane config $(REGISTRY)/buildpack/$(EXECUTABLE):$(VERSION) | jq '.config.Labels' | jq -r '.["io.buildpacks.lifecycle.metadata"]' | jq -r '.sbom.sha')
-	curl -s -L -o sbom.json $(REGISTRY)/v2/buildpack/$(EXECUTABLE):$(digest)
