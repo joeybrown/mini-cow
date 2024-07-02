@@ -117,3 +117,23 @@ buildpack-config-inspect:
 	@crane config $(REGISTRY)/buildpack/$(EXECUTABLE):$(VERSION) | jq '.config.Labels' | jq -r '.["io.buildpacks.lifecycle.metadata"]' | jq -r '.runImage.topLayer'
 	@crane config $(REGISTRY)/buildpack/$(EXECUTABLE):$(VERSION) | jq '.config.Labels' | jq -r '.["io.buildpacks.lifecycle.metadata"]' | jq -r '.runImage.reference'
 
+# Create a buildpack base run image based on heroku:22
+buildpack-new-base:
+	podman build -t $(REGISTRY)/buildpack/base:amd64-$(BASE_VERSION) --build-arg TARGET_PLATFORM="linux/amd64" --format docker -f build/run2.Containerfile .
+	podman push --tls-verify=false $(REGISTRY)/buildpack/base:amd64-$(BASE_VERSION)
+	podman build -t $(REGISTRY)/buildpack/base:arm64-$(BASE_VERSION) --build-arg TARGET_PLATFORM="linux/arm64" --format docker -f build/run2.Containerfile .
+	podman push --tls-verify=false $(REGISTRY)/buildpack/base:arm64-$(BASE_VERSION)
+	crane index append --docker-empty-base -t $(REGISTRY)/buildpack/base:$(BASE_VERSION) -m $(REGISTRY)/buildpack/base:amd64-$(BASE_VERSION) -m $(REGISTRY)/buildpack/base:arm64-$(BASE_VERSION)
+	@echo
+	@echo "------------------------------------------------------------"
+	@echo
+	@echo "Buildpack base image build completed. Images pushed to $(BASE_VERSION)."
+	@echo $(REGISTRY)/buildpack/base:amd64-$(BASE_VERSION)
+	@echo $(REGISTRY)/buildpack/base:arm64-$(BASE_VERSION)
+	@echo $(REGISTRY)/buildpack/base:$(BASE_VERSION)
+
+buildpack-rebase:
+	pack rebase $(REGISTRY)/buildpack/$(EXECUTABLE):rebased \
+		--previous-image $(REGISTRY)/buildpack/$(EXECUTABLE):$(VERSION) \
+		--run-image $(REGISTRY)/buildpack/base:$(BASE_VERSION) \
+		--publish
