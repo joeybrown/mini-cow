@@ -1,1 +1,0 @@
-{"critical":{"identity":{"docker-reference":"localhost:8000/buildpack/mycowsay"},"image":{"docker-manifest-digest":"sha256:635e996f6e02043ee176e801c3550fdeec9c84b00b4db13d67655c43142e979c"},"type":"cosign container image signature"},"optional":null}

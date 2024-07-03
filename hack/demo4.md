@@ -16,9 +16,13 @@ cosign sign --key $BASE_DIR/cosign/cosign.key --tlog-upload=false $IMAGE_REFEREN
 3. Look at the Signature
 ```bash
 export SIG_TAG=$(crane digest $BUILDPACK_IMAGE | sed 's/sha256:/sha256-/').sig
-#export SIG_REFERENCE=$IMAGE_REFERENCE | sed 's/sha256:/sha256-/' | sed 's/$/.sig/'
 export SIG_REFERENCE=$REGISTRY/buildpack/$EXECUTABLE:$SIG_TAG 
 crane manifest $SIG_REFERENCE | jq
+
+export SIG_LAYER=$(crane manifest $SIG_REFERENCE | \
+  jq -r '.layers[] | select(.mediaType == "application/vnd.dev.cosign.simplesigning.v1+json")')
+export SIGNATURE=$(echo $SIG_LAYER | jq -r '.annotations."dev.cosignproject.cosign/signature"')  
+export SIG_PAYLOAD_DIGEST=$(echo $SIG_LAYER | jq -r '.digest')
 ```
 
 4. Verify the signature manually
@@ -36,4 +40,20 @@ echo 'Note: this only verifies the signature. You should also check the content 
 5. Verify the Signature with cosign
 ```bash
 cosign verify --key $BASE_DIR/cosign/cosign.pub --insecure-ignore-tlog=true $IMAGE_REFERENCE
+```
+
+6. Push some stuff with ORAS
+```bash
+ARTIFACT_DIGEST=$(bash -c "cd $BASE_DIR/hack && oras push $REGISTRY/artifacts/$EXECUTABLE --artifact-type application/vnd.joey.cow-say.v1 \
+  demo1.md:application/vnd.joey.cow-say.v1+md \
+  demo2.md:application/vnd.joey.cow-say.v1+md \
+  demo3.md:application/vnd.joey.cow-say.v1+md \
+  demo4.md:application/vnd.joey.cow-say.v1+md \
+  --format json | jq -r '.digest'")
+mkdir -p $BASE_DIR/oras
+
+echo "Artifact Digest: $ARTIFACT_DIGEST"
+
+curl -fsSL -H "Accept: application/vnd.oci.image.manifest.v1+json" -o $BASE_DIR/oras/manifest.json $REGISTRY/v2/$EXECUTABLE/manifests/$ARTIFACT_DIGEST
+
 ```
