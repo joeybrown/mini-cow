@@ -1,4 +1,5 @@
-defaultBaseImage: localhost:8000/containerfile/base:v0.1.0
+defaultBaseImage: localhost:8000/podman-build/base:v1.0.0-3-gac1b3ce-dirty
+
 defaultPlatforms:
   - linux/amd64
   - linux/arm64
@@ -10,4 +11,3 @@ builds:
     ldflags:
       - -s -w
       - -X main.version={{.Env.VERSION}}
-

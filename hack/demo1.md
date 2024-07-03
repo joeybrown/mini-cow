@@ -4,7 +4,6 @@
 ```bash
 export REGISTRY=localhost:8000
 export VERSION=$(git describe --tags --always --long --dirty)
-export BASE_VERSION=v0.1.0
 export BASE_DIR="$HOME/Dev/presentations/mini-cow"
 export EXECUTABLE=mycowsay
 ```
@@ -29,7 +28,6 @@ crane index append \
   -m $BASE_IMAGE_AMD64 \
   -m $BASE_IMAGE_ARM64 \
   -t $BASE_IMAGE_MULTI
-  
 ```
 
 3. Build the App Image
@@ -123,4 +121,10 @@ LAYER_DIGEST=$(cat $BASE_DIR/$EXECUTABLE-oci-layout/blobs/sha256/$MANIFEST_DIGES
 
 sha256sum $BASE_DIR/$EXECUTABLE-oci-layout/blobs/sha256/$MANIFEST_DIGEST
 sha256sum $BASE_DIR/$EXECUTABLE-oci-layout/blobs/sha256/$LAYER_DIGEST.tar.gz
+```
+
+10. Compare layers
+```bash
+crane manifest $BASE_IMAGE_ARM64 | jq '.layers[].digest'
+crane manifest $APP_IMAGE_ARM64 | jq '.layers[].digest'
 ```
