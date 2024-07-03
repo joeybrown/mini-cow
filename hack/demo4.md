@@ -52,8 +52,8 @@ ARTIFACT_DIGEST=$(bash -c "cd $BASE_DIR/hack && oras push $REGISTRY/artifacts/$E
   --format json | jq -r '.digest'")
 mkdir -p $BASE_DIR/oras
 
-echo "Artifact Digest: $ARTIFACT_DIGEST"
+curl -fsSL -H "Accept: application/vnd.oci.image.manifest.v1+json" -o $BASE_DIR/oras/manifest.json $REGISTRY/v2/artifacts/$EXECUTABLE/manifests/$ARTIFACT_DIGEST
 
-curl -fsSL -H "Accept: application/vnd.oci.image.manifest.v1+json" -o $BASE_DIR/oras/manifest.json $REGISTRY/v2/$EXECUTABLE/manifests/$ARTIFACT_DIGEST
+oras pull --output $BASE_DIR/oras $REGISTRY/artifacts/$EXECUTABLE@$ARTIFACT_DIGEST
 
 ```
