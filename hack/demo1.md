@@ -56,6 +56,11 @@ crane index append \
   -t $APP_IMAGE_MULTI 
 ```
 
+3.5 Run the Container
+```bash
+podman run --rm $APP_IMAGE_MULTI "This was made with podman (buildah)"
+```
+
 4. Look at the App Image Index
 ```bash
 crane manifest $APP_IMAGE_MULTI | jq
@@ -107,7 +112,15 @@ mkdir -p $BASE_DIR/$EXECUTABLE-oci-layout/blobs/sha256/$LAYER_DIGEST
 tar -C $BASE_DIR/$EXECUTABLE-oci-layout/blobs/sha256/$LAYER_DIGEST -xf $BASE_DIR/$EXECUTABLE-oci-layout/blobs/sha256/$LAYER_DIGEST.tar.gz
 
 cat $BASE_DIR/$EXECUTABLE-oci-layout/blobs/sha256/$MANIFEST_DIGEST | jq  > $BASE_DIR/$EXECUTABLE-oci-layout/blobs/sha256/$MANIFEST_DIGEST.json
-
 cat $BASE_DIR/$EXECUTABLE-oci-layout/blobs/sha256/$CONFIG_DIGEST | jq  > $BASE_DIR/$EXECUTABLE-oci-layout/blobs/sha256/$CONFIG_DIGEST.json
+```
 
+9. Run sha256sum on the layer
+```bash
+ARM64_DIGEST=$(crane manifest $APP_IMAGE_MULTI | jq -r '.manifests[] | select(.platform.architecture == "arm64") | .digest')
+MANIFEST_DIGEST=$(cat $BASE_DIR/$EXECUTABLE-oci-layout/index.json | jq -r '.manifests[0].digest' | sed 's/sha256://')
+LAYER_DIGEST=$(cat $BASE_DIR/$EXECUTABLE-oci-layout/blobs/sha256/$MANIFEST_DIGEST | jq -r '.layers[-1].digest' | sed 's/sha256://')
+
+sha256sum $BASE_DIR/$EXECUTABLE-oci-layout/blobs/sha256/$MANIFEST_DIGEST
+sha256sum $BASE_DIR/$EXECUTABLE-oci-layout/blobs/sha256/$LAYER_DIGEST.tar.gz
 ```
