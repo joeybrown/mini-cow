@@ -1,4 +1,4 @@
-defaultBaseImage: localhost:8000/podman-build/base:v1.0.0-3-gac1b3ce-dirty
+defaultBaseImage: localhost:8000/podman-build/base:v1.0.0-7-g1d01a7e
 
 defaultPlatforms:
   - linux/amd64
